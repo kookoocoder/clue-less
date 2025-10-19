@@ -38,7 +38,7 @@ export async function registerPasskey(handle: string): Promise<RegistrationResul
     const options: PublicKeyCredentialCreationOptionsJSON = await optionsResponse.json();
 
     // Start WebAuthn registration
-    const credential = await startRegistration(options);
+    const credential = await startRegistration({ optionsJSON: options });
 
     // Send credential to server
     const verifyResponse = await fetch("/api/auth/webauthn/finish", {
@@ -104,7 +104,7 @@ export async function authenticatePasskey(): Promise<AuthenticationResult> {
     const options: PublicKeyCredentialRequestOptionsJSON = await optionsResponse.json();
 
     // Start WebAuthn authentication
-    const credential = await startAuthentication(options);
+    const credential = await startAuthentication({ optionsJSON: options });
 
     // Send credential to server
     const verifyResponse = await fetch("/api/auth/webauthn/finish", {
