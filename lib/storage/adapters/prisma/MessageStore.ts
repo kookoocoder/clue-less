@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { MessageStore } from "@/lib/storage/MessageStore";
 import type { CiphertextEnvelope, MessageId, ThreadId } from "@/lib/domain/types";
+import type { Prisma } from "@prisma/client";
 
 export class PrismaMessageStore implements MessageStore {
   async put(envelope: CiphertextEnvelope): Promise<MessageId> {
@@ -9,7 +10,7 @@ export class PrismaMessageStore implements MessageStore {
         id: envelope.messageId,
         threadId: envelope.threadId,
         senderId: envelope.senderId,
-        header: envelope.header as Record<string, unknown>,
+        header: envelope.header as Prisma.InputJsonValue,
         ciphertext: envelope.ciphertext,
         nonce: envelope.nonce,
         ephemeral: envelope.ephemeral ?? false,

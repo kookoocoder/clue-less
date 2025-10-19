@@ -104,9 +104,9 @@ export async function verifyAuthentication(
       expectedChallenge,
       expectedOrigin: ORIGIN,
       expectedRPID: RP_ID,
-      authenticator: {
-        credentialID: Buffer.from(credentialId, "base64"),
-        credentialPublicKey,
+      credential: {
+        id: credentialId,
+        publicKey: new Uint8Array(credentialPublicKey),
         counter: 0,
       },
     };
