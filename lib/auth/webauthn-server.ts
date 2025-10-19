@@ -59,8 +59,8 @@ export async function verifyRegistration(
     if (verification.verified && verification.registrationInfo) {
       return {
         verified: true,
-        credentialId: Buffer.from(verification.registrationInfo.credentialID).toString("base64"),
-        publicKey: verification.registrationInfo.credentialPublicKey,
+        credentialId: Buffer.from(verification.registrationInfo.credential.id).toString("base64"),
+        publicKey: verification.registrationInfo.credential.publicKey,
       };
     }
 
