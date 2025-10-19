@@ -82,8 +82,7 @@ export async function generateAuthenticationOpts(
     timeout: 60000,
     userVerification: "preferred",
     allowCredentials: allowedCredentials?.map((cred) => ({
-      id: Buffer.from(cred.id, "base64"),
-      type: "public-key",
+      id: cred.id,
     })),
   };
 
