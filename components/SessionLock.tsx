@@ -24,7 +24,7 @@ export default function SessionLock({ onUnlock }: SessionLockProps) {
           Solve Puzzle to Unlock
         </button>
         <p className="text-xs text-gray-600">
-          You'll need to solve a new puzzle to regain access
+          You&apos;ll need to solve a new puzzle to regain access
         </p>
       </div>
     </div>

@@ -41,7 +41,7 @@ export default function LoginPage() {
       } else {
         setError(data.error || "Invalid credentials");
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
@@ -137,9 +137,9 @@ export default function LoginPage() {
 
         {/* Back Link */}
         <div className="text-center">
-          <a href="/" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+          <Link href="/" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
             ← Back to home
-          </a>
+          </Link>
         </div>
       </div>
     </main>

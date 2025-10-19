@@ -19,7 +19,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { isLocked, unlock } = useInactivityLock({
+  const { isLocked } = useInactivityLock({
     timeout: 5 * 60 * 1000, // 5 minutes
     onLock: () => {
       console.log("Session locked due to inactivity");

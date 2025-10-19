@@ -1,5 +1,3 @@
-import { NextRequest } from "next/server";
-
-export async function POST(_req: NextRequest) {
+export async function POST() {
   return Response.json({ error: "Puzzle feature disabled" }, { status: 404 });
 }

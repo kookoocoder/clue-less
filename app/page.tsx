@@ -98,7 +98,15 @@ export default function Home() {
   );
 }
 
-function GameCard({ game }: { game: any }) {
+interface Game {
+  name: string;
+  color: string;
+  icon: string;
+  badge?: string;
+  isReal?: boolean;
+}
+
+function GameCard({ game }: { game: Game }) {
   const content = (
     <div className="group relative aspect-[4/3] rounded-xl overflow-hidden bg-gradient-to-br hover:scale-105 transition-transform duration-200 cursor-pointer shadow-lg hover:shadow-2xl">
       {/* Background gradient */}
