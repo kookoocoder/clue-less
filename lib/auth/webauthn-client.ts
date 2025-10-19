@@ -1,8 +1,9 @@
-import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
-import type {
-  PublicKeyCredentialCreationOptionsJSON,
-  PublicKeyCredentialRequestOptionsJSON,
-} from "@simplewebauthn/types";
+import {
+  startRegistration,
+  startAuthentication,
+  type PublicKeyCredentialCreationOptionsJSON,
+  type PublicKeyCredentialRequestOptionsJSON,
+} from "@simplewebauthn/browser";
 
 export interface RegistrationResult {
   success: boolean;

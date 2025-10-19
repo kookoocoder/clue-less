@@ -3,17 +3,13 @@ import {
   verifyRegistrationResponse,
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
+  type GenerateRegistrationOptionsOpts,
+  type GenerateAuthenticationOptionsOpts,
+  type VerifyRegistrationResponseOpts,
+  type VerifyAuthenticationResponseOpts,
+  type RegistrationResponseJSON,
+  type AuthenticationResponseJSON,
 } from "@simplewebauthn/server";
-import type {
-  GenerateRegistrationOptionsOpts,
-  GenerateAuthenticationOptionsOpts,
-  VerifyRegistrationResponseOpts,
-  VerifyAuthenticationResponseOpts,
-} from "@simplewebauthn/server";
-import type {
-  RegistrationResponseJSON,
-  AuthenticationResponseJSON,
-} from "@simplewebauthn/types";
 
 const RP_NAME = "CipherTalk";
 // For localhost development, RP_ID must be "localhost" (not "localhost:3000")
