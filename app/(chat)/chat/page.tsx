@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useInactivityLock } from "@/hooks/useInactivityLock";
 import SessionLock from "@/components/SessionLock";
@@ -9,15 +9,20 @@ interface Message {
   id: string;
   body: string;
   senderId: string;
+  senderHandle: string;
   timestamp: number;
-  isSent: boolean;
+  createdAt: string;
+  isSent?: boolean;
 }
 
 export default function ChatPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
   
   const { isLocked } = useInactivityLock({
     timeout: 5 * 60 * 1000, // 5 minutes
@@ -25,6 +30,71 @@ export default function ChatPage() {
       console.log("Session locked due to inactivity");
     },
   });
+
+  const loadMessages = useCallback(async () => {
+    try {
+      const response = await fetch("/api/chat/messages?limit=50");
+      const data = await response.json();
+      
+      if (data.ok) {
+        setMessages(data.messages);
+      }
+    } catch (error) {
+      console.error("Error loading messages:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const setupEventSource = useCallback(() => {
+    const eventSource = new EventSource("/api/chat/events");
+    eventSourceRef.current = eventSource;
+
+    eventSource.onopen = () => {
+      console.log("Connected to chat events");
+      setIsConnected(true);
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === "message") {
+          setMessages(prev => {
+            // Check if message already exists to avoid duplicates
+            const exists = prev.some(msg => msg.id === data.message.id);
+            if (exists) return prev;
+            
+            // Remove any temporary messages with the same content from the same user
+            const filtered = prev.filter(msg => 
+              !(msg.id.startsWith('temp_') && 
+                msg.body === data.message.body && 
+                msg.senderId === data.message.senderId)
+            );
+            
+            return [...filtered, data.message];
+          });
+        } else if (data.type === "connected") {
+          console.log("Connected to chat:", data.message);
+        }
+      } catch (error) {
+        console.error("Error parsing event data:", error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error("EventSource error:", error);
+      setIsConnected(false);
+      
+      // Retry connection after 3 seconds
+      setTimeout(() => {
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+          setupEventSource();
+        }
+      }, 3000);
+    };
+  }, []);
 
   useEffect(() => {
     // Check if user is authenticated and unlocked
@@ -40,28 +110,73 @@ export default function ChatPage() {
       router.push("/gate");
       return;
     }
-  }, [router]);
+
+    // Load initial messages
+    loadMessages();
+    
+    // Set up real-time connection
+    setupEventSource();
+
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, [router, loadMessages, setupEventSource]);
 
   useEffect(() => {
     // Auto-scroll to bottom when new messages arrive
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  function handleSend() {
+  async function handleSend() {
     if (!input.trim()) return;
 
-    const newMessage: Message = {
-      id: crypto.randomUUID(),
-      body: input,
-      senderId: "me",
+    const userId = localStorage.getItem("userId");
+    if (!userId) return;
+
+    const messageText = input.trim();
+    setInput("");
+
+    // Optimistic update - add message immediately to UI
+    const tempMessage: Message = {
+      id: `temp_${Date.now()}`,
+      body: messageText,
+      senderId: userId,
+      senderHandle: "You", // Will be updated when real message arrives
       timestamp: Date.now(),
+      createdAt: new Date().toISOString(),
       isSent: true,
     };
 
-    setMessages((prev) => [...prev, newMessage]);
-    setInput("");
+    setMessages(prev => [...prev, tempMessage]);
 
-    // TODO: Encrypt and send via API
+    try {
+      const response = await fetch("/api/chat/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: messageText,
+          userId: userId,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!data.ok) {
+        console.error("Error sending message:", data.error);
+        // Remove the optimistic message and re-add to input
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+        setInput(messageText);
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // Remove the optimistic message and re-add to input
+      setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+      setInput(messageText);
+    }
   }
 
   function handleUnlock() {
@@ -77,6 +192,17 @@ export default function ChatPage() {
     return <SessionLock onUnlock={handleUnlock} />;
   }
 
+  if (isLoading) {
+    return (
+      <main className="h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto"></div>
+          <p className="text-gray-400">Loading chat...</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white flex flex-col">
       {/* Header */}
@@ -87,17 +213,25 @@ export default function ChatPage() {
               C
             </div>
             <div>
-              <h1 className="font-semibold">CipherTalk</h1>
-              <p className="text-xs text-gray-500">End-to-end encrypted</p>
+              <h1 className="font-semibold">CipherTalk Global</h1>
+              <p className="text-xs text-gray-500">Global chat room</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono">
+            <div className={`px-3 py-1 rounded-full text-xs font-mono ${
+              isConnected 
+                ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                : "bg-red-500/10 border border-red-500/20 text-red-400"
+            }`}>
               <span className="relative flex h-2 w-2 inline-block mr-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                <span className={`absolute inline-flex h-full w-full rounded-full ${
+                  isConnected ? "bg-emerald-400" : "bg-red-400"
+                } ${isConnected ? "animate-ping" : ""} opacity-75`}></span>
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                  isConnected ? "bg-emerald-500" : "bg-red-500"
+                }`}></span>
               </span>
-              SECURED
+              {isConnected ? "CONNECTED" : "DISCONNECTED"}
             </div>
             <button
               onClick={handleLogout}
@@ -116,10 +250,10 @@ export default function ChatPage() {
             <div className="text-center space-y-4 max-w-md">
               <div className="text-6xl">💬</div>
               <h2 className="text-2xl font-semibold text-gray-400">
-                Start a secure conversation
+                Welcome to Global Chat
               </h2>
               <p className="text-sm text-gray-600">
-                All messages are end-to-end encrypted. Not even we can read them.
+                Start chatting with other users in real-time!
               </p>
             </div>
           </div>
@@ -157,30 +291,38 @@ export default function ChatPage() {
 }
 
 function MessageBubble({ message }: { message: Message }) {
-  const isMe = message.senderId === "me";
+  const currentUserId = localStorage.getItem("userId");
+  const isMe = message.senderId === currentUserId;
   
   return (
     <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-md px-4 py-3 rounded-2xl ${
-          isMe
-            ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-br-sm"
-            : "bg-gray-800 text-gray-100 rounded-bl-sm"
-        }`}
-      >
-        <p className="text-sm leading-relaxed">{message.body}</p>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs opacity-70">
-            {new Date(message.timestamp).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </span>
-          {isMe && (
+      <div className={`max-w-md ${isMe ? "ml-12" : "mr-12"}`}>
+        {!isMe && (
+          <div className="text-xs text-gray-500 mb-1 px-2">
+            {message.senderHandle}
+          </div>
+        )}
+        <div
+          className={`px-4 py-3 rounded-2xl ${
+            isMe
+              ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-br-sm"
+              : "bg-gray-800 text-gray-100 rounded-bl-sm"
+          }`}
+        >
+          <p className="text-sm leading-relaxed">{message.body}</p>
+          <div className="flex items-center gap-2 mt-1">
             <span className="text-xs opacity-70">
-              {message.isSent ? "✓✓" : "✓"}
+              {new Date(message.timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </span>
-          )}
+            {isMe && (
+              <span className="text-xs opacity-70">
+                ✓✓
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
